@@ -12,7 +12,7 @@ type HeartBeatData struct {
 	IfNewBlock    bool   `json:"ifNewBlock"`
 	IfUpdateBlock bool   `json:"ifUpdateBlock"`
 	CreatorId     string `json:"creatorid"`
-	NodeId        int32  `json:"creatorid"`
+	NodeId        int32  `json:"nodeid"`
 	BlockJson     string `json:"blockJson"`
 	PeerMapJson   string `json:"peerMapJson"`
 	Addr          string `json:"addr"`
