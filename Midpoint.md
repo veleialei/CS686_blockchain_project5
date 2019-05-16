@@ -119,3 +119,13 @@ Player can see who create most block along the chain as long as they provide cor
 
 ## Conclusion
 As stated above task 1 to 4 has finished, currently people can play, get rank and create new game block if verified. The task 1 is more abstract, which need some more explanation. For now, I provide two key value pairs to store the game information in MPT. As it is a block chain project, not a real game, it is more like a block chain game platform. Creator provide essential game data on chain and user's local game engine read the data, do visualization and all kinds of things. Player play the game on their own machine, if they pass the game ,the local game engine send the information to the block chain game platform. For now, I designed a very simple interaction way just like question and answer, it is easy to add more in MPT.
+
+
+## Reference
+I read through these articles for inspiration.
+https://blockonomi.com/blockchain-games/
+https://medium.com/crowdbotics/examples-of-blockchain-games-and-how-they-work-7fb0a1e76e2e
+https://blockexplorer.com/news/best-blockchain-games/
+https://www.blockchaingamer.biz/features/3283/most-anticipated-blockchain-games/
+The first two articles explore the current technique of blockchain game and why they are suitable for block chain.
+The last two of them lists some interesting game examples. 
