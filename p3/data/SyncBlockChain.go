@@ -33,13 +33,16 @@ func (sbc *SyncBlockChain) Get(height int32) ([]p2.Block, bool) {
 }
 
 func (sbc *SyncBlockChain) GetBlock(height int32, hash string) (p2.Block, bool) {
+	fmt.Println("Why I'm wrong?????? ")
+	fmt.Println(height)
 	blocks, valid := sbc.Get(height)
+	fmt.Println(valid)
 	emptyBlock := p2.Block{}
 	if !valid {
 		return emptyBlock, false
 	}
 	for _, v := range blocks {
-		if v.Header.ParentHash == hash {
+		if v.Header.Hash == hash {
 			fmt.Println("GetBlock/ Find the Block!!!")
 			return v, true
 		}
@@ -74,14 +77,14 @@ func (sbc *SyncBlockChain) CheckParentHash(insertBlock p2.Block) bool {
 //????
 func (sbc *SyncBlockChain) UpdateEntireBlockChain(blockChainJson string) {
 	sbc.mux.Lock()
-	block, err := p2.DecodeJsonToBlockChain(blockChainJson)
+	blockChain, err := p2.DecodeJsonToBlockChain(blockChainJson)
 	if err != nil {
+		fmt.Println("Some error in decode")
 		sbc.mux.Unlock()
 		return
 	}
 
-	sbc.bc = *block
-
+	sbc.bc = *blockChain
 	sbc.mux.Unlock()
 }
 
@@ -108,6 +111,7 @@ func (sbc *SyncBlockChain) GenBlock(mpt p1.MerklePatriciaTrie, rank map[string]i
 	newBlock := p2.NewBlock(len+1, 1234567890, parentHash, mpt, rank, creatorId, "", minorlist)
 
 	sbc.bc.Insert(newBlock)
+	fmt.Println(newBlock)
 
 	return *newBlock
 }
@@ -138,9 +142,15 @@ func (sbc *SyncBlockChain) GetBlocks(height int32) []p2.Block {
 }
 
 //todo
-func (sbc *SyncBlockChain) AddCreator(id int32, secret string, block p2.Block) {
+func (sbc *SyncBlockChain) AddCreator(id string, secret string, block p2.Block) {
 	sbc.mux.Lock()
-	sbc.bc.AddCreator(string(id), secret, block.Header.Height, block.Header.Hash)
+	sbc.bc.AddCreator(id, secret, block.Header.Height, block.Header.Hash)
+	sbc.mux.Unlock()
+}
+
+func (sbc *SyncBlockChain) AddPlayer(id string, block p2.Block) {
+	sbc.mux.Lock()
+	sbc.bc.AddPlayer(id, block.Header.Height, block.Header.Hash)
 	sbc.mux.Unlock()
 }
 
@@ -149,4 +159,9 @@ func (sbc *SyncBlockChain) UpdateBlock(block p2.Block, creator string) bool {
 	res := sbc.bc.UpdateBlock(block, creator)
 	sbc.mux.Unlock()
 	return res
+}
+
+func (sbc *SyncBlockChain) GetOverview(id string) string {
+	fmt.Println("LALLA")
+	return sbc.bc.GetOverview(id)
 }

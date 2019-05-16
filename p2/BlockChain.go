@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"../p1"
@@ -118,6 +119,7 @@ func DecodeFromJson(jsonString string) *Block {
 	var result BlockJson
 	err := json.Unmarshal([]byte(jsonString), &result)
 	if err != nil {
+		fmt.Println("some error deeper in bc")
 		return nil
 	} else {
 		header := Header{Height: result.Height, TimeStamp: result.Timestamp, Hash: result.Hash, ParentHash: result.ParentHash, Size: result.Size, rank: result.Rank, creator: result.Creator, playerList: result.playerList, minorList: result.minorList}
@@ -164,8 +166,8 @@ func (b *Block) EncodeToJson() string {
 	str += `"mpt": ` + b.Value.GetJsonString() + `, `
 	str += `"creator": "` + b.Header.creator + `", `
 	str += `"playerlist": "` + b.Header.playerList + `", `
-	str += `"minorlist": "` + b.GetMinorString() + `", `
-	str += `"rank":  "` + b.GetRankString() + `"}`
+	str += `"minorlist": ` + b.GetMinorString() + `, `
+	str += `"rank": ` + b.GetRankString() + `}`
 	return str
 }
 
@@ -178,6 +180,8 @@ func (b *Block) GetMinorString() string {
 }
 
 func (b *Block) GetRankString() string {
+	fmt.Println("Rankstr : ")
+	fmt.Println(b.Header.rank)
 	rank, err := json.Marshal(b.Header.rank)
 	if err != nil {
 		return "{}"
@@ -217,6 +221,7 @@ func (bc *BlockChain) Get(height int32) []Block {
 	if blocks == nil || len(blocks) == 0 {
 		return nil
 	}
+	fmt.Println("Getting!!" + string(bc.Length))
 	return blocks
 }
 
@@ -241,6 +246,7 @@ func (bc *BlockChain) Insert(b *Block) {
 
 	if height > bc.Length {
 		bc.Length = height
+		fmt.Println("hahaha change the height")
 	}
 }
 
@@ -377,14 +383,26 @@ func (bc *BlockChain) GetBlocks(height int32) []Block {
 }
 
 func (bc *BlockChain) AddCreator(id string, secret string, height int32, hash string) {
-	for _, v := range bc.Chain[height] {
+	for k, v := range bc.Chain[height] {
 		if v.Header.Hash == hash {
-			v.Header.minorList[id] = secret
+			bc.Chain[height][k].Header.minorList[id] = secret
+			fmt.Println("Creator Added")
+			fmt.Println(bc.Chain[height][k].Header.minorList)
+		}
+	}
+}
+
+func (bc *BlockChain) AddPlayer(id string, height int32, hash string) {
+	for k, v := range bc.Chain[height] {
+		if v.Header.Hash == hash {
+			bc.Chain[height][k].Header.playerList += id + " "
+			fmt.Println("hahaha " + bc.Chain[height][k].Header.playerList)
 		}
 	}
 }
 
 func (b *Block) VerifySecret(id string, secret string) bool {
+	fmt.Println("Verifying: " + b.Header.minorList[id])
 	if b.Header.minorList[id] == secret {
 		return true
 	}
@@ -392,6 +410,7 @@ func (b *Block) VerifySecret(id string, secret string) bool {
 }
 
 func (b *Block) GetPlayer() []string {
+	fmt.Println("list: " + b.Header.playerList)
 	return strings.Fields(b.Header.playerList)
 }
 
@@ -422,8 +441,31 @@ func (bc *BlockChain) UpdateBlock(block Block, creator string) bool {
 				v.Header.minorList[id] = secret
 			}
 			return true
-
 		}
 	}
 	return false
+}
+
+// type BlockChain struct {
+// 	Chain  map[int32][]Block
+// 	Length int32 //最高height的
+// }
+func (bc *BlockChain) GetOverview(id string) string {
+	res := ""
+	passed := "No"
+	for i := int32(1); i <= bc.Length; i++ {
+		blocks := bc.Chain[i]
+		fmt.Println(i)
+		res += "LEVEL " + strconv.Itoa(int(i)) + ": \n"
+		for j := 0; j < len(blocks); j++ {
+			if blocks[j].Header.minorList[id] != "" {
+				passed = "Yes"
+			} else {
+				passed = "No"
+			}
+			res += "Block " + string(j) + blocks[j].Header.Hash + "; Parent: " + blocks[j].Header.ParentHash + "; Passed: " + passed + "\n"
+		}
+		res += "======================================================================================================================================================\n"
+	}
+	return res
 }

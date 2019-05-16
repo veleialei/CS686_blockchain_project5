@@ -45,7 +45,6 @@ I remove Nonce and add 3 other elements in Header of a block for file p2/BlockCh
 ~~~~
 type Header struct {
   ...
-
 	rank map[string]int32
 	creator string
 	playerList string

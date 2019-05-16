@@ -1,7 +1,7 @@
 package data
 
 type PlayData struct {
-	Id     int32  `json:"id"`
+	Id     string `json:"id"`
 	Addr   string `json:"addr"`
 	Height int32  `json:"height"`
 	Hash   string `json:"hash"`

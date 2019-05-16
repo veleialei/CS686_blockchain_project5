@@ -38,12 +38,13 @@ func Init() {
 	fmt.Println("Initing")
 	SBC = data.NewBlockChain()
 	Peers = data.NewPeerList(0, 32)
+	if ID == 123 {
+		mpt := data.GenMPT("I want to start", "OK")
+		rank := make(map[string]int32)
+		rank["123"] = 1
+		SBC.GenBlock(mpt, rank, "123")
+	}
 }
-
-// Register ID, download BlockChain, start HeartBeat
-// /start
-// Description: You can start the program by calling this route(be careful to start only once),
-// or start the program during bootstrap.
 
 // Start():
 // Get an ID from TA's server, download the BlockChain from your own first node,
@@ -58,24 +59,13 @@ func Start(w http.ResponseWriter, r *http.Request) {
 
 		Register()
 
-		// 2. Then, the node will go to any peer on its PeerList
-		// to download the current BlockChain.
 		Download()
 
-		// 3. After registration, the node will start to
-		// send HeartBeat for every 5~10 seconds.
 		go StartHeartBeat()
 
 		ifStarted = true
 	}
 }
-
-// Display peerList and sbc
-// /show
-// Method: GET
-// Description: Display the PeerList and the BlockChain.
-// Use the helpful function BlockChain.show() in the starter code to display the BlockChain,
-// and add your own function to display the PeerList.
 
 // Show():
 // Shows the PeerMap and the BlockChain.
@@ -119,14 +109,6 @@ func RegisterTA() {
 	data.NewRegisterData(int32(id), "")
 }
 
-// Download blockchain from TA server
-// 1. Download URL: the address would be where you launch your own node(For example,
-// 	http://localhost:6688); the API would be "/upload" since it is uploaded by the uploader.
-// 	Here are the steps:
-//  (1) You launch the first node at http://localhost:6688.
-// 	(2) You launch the second node at another address.
-//  (3) The second node would download the current blockChain from http://localhost:6688/upload.
-
 // Download():
 // Download the current BlockChain from your own first node(can be hardcoded).
 // It's ok to use this function only after launching a new node. You may not need it after node starts heartBeats.
@@ -156,12 +138,6 @@ func Download() {
 	fmt.Println("GET BODY: " + string(body))
 	SBC.UpdateEntireBlockChain(string(body))
 }
-
-// Upload blockchain to whoever called this method, return jsonStr
-// /upload
-// Method: GET
-// Response: The JSON string of the BlockChain.
-// Description: Return JSON string of the entire blockchain to the downloader.
 
 // Upload():
 // Return the BlockChain's JSON. And add the remote peer into the PeerMap.
@@ -432,6 +408,7 @@ func StartHeartBeat() {
 		if err != nil {
 			log.Panic(err)
 		}
+		fmt.Println(SBC)
 		heartBeatData := data.PrepareHeartBeatData(&SBC, "", ID, peersJSON, SELF_ADDR)
 		ForwardHeartBeat(heartBeatData)
 	}
@@ -473,6 +450,7 @@ func Scene(w http.ResponseWriter, r *http.Request) {
 
 	var playData data.PlayData
 	err = json.Unmarshal([]byte(body), &playData)
+	fmt.Println()
 	blocks := SBC.GetBlocks(playData.Height)
 
 	if blocks == nil {
@@ -483,21 +461,19 @@ func Scene(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i := 0; i < len(blocks); i++ {
-		if accessVerify(playData.Id, blocks[i]) {
-			mpt := blocks[i].Value
-			playerlist, err := mpt.Get("playerlist")
-			content, err := mpt.Get("content")
+		if playData.Height == 1 || accessVerify(playData.Id, blocks[i]) {
+			SBC.AddPlayer(playData.Id, blocks[i])
+			content, err := blocks[i].Value.Get("content")
 			if err == nil {
-				mpt.Insert("playerlist", playerlist+" "+string(playData.Id))
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(content))
+				return
 			}
-			return
 		}
 	}
 
 	w.WriteHeader(http.StatusBadRequest)
-	w.Write([]byte("Cannot access block"))
+	w.Write([]byte("Something wrong"))
 }
 
 func Rank(w http.ResponseWriter, r *http.Request) {
@@ -519,9 +495,10 @@ func Rank(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(body), &blockinfo)
 	hash := blockinfo["hash"]
 	height, err := strconv.Atoi(blockinfo["height"])
+	fmt.Println("rank: " + hash + " " + blockinfo["height"])
 	if err == nil {
-		block, notempty := SBC.GetBlock(int32(height), hash)
-		if notempty {
+		block, notEmpty := SBC.GetBlock(int32(height), hash)
+		if notEmpty {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(block.GetRankString()))
 			return
@@ -531,7 +508,7 @@ func Rank(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Cannot access block"))
 }
 
-func accessVerify(id int32, block p2.Block) bool {
+func accessVerify(id string, block p2.Block) bool {
 	parentBlock := SBC.GetParentBlock(block)
 	playersstr, err := parentBlock.Value.Get("playerlist")
 	players := strings.Fields(playersstr)
@@ -562,8 +539,9 @@ func Play(w http.ResponseWriter, r *http.Request) {
 	}
 	var playData data.PlayData
 	err = json.Unmarshal([]byte(body), &playData)
-	block, empty := SBC.GetBlock(playData.Height, playData.Hash)
-	if !empty && reactVerify(playData.Id, block, playData.React) {
+	block, notEmpty := SBC.GetBlock(playData.Height, playData.Hash)
+	fmt.Println(block)
+	if notEmpty && reactVerify(playData.Id, block, playData.React) {
 		secret := ""
 		for i := 0; i < 16; i++ {
 			secret += Hex[rand.Intn(16)]
@@ -584,13 +562,18 @@ func Play(w http.ResponseWriter, r *http.Request) {
 		ForwardHeartBeat(heartBeatData)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(secret))
+		return
 	}
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write([]byte("Something Wrong"))
 }
 
-func reactVerify(id int32, block p2.Block, react string) bool {
+func reactVerify(id string, block p2.Block, react string) bool {
 	players := block.GetPlayer()
+	fmt.Println("Players:")
+	fmt.Println(players)
 	for _, player := range players {
-		if player == string(id) {
+		if player == id {
 			correct, err := block.Value.Get("react")
 			if err == nil && correct == react {
 				return true
@@ -620,7 +603,10 @@ func Create(w http.ResponseWriter, r *http.Request) {
 
 	var createinfo data.CreateData
 	err = json.Unmarshal([]byte(body), &createinfo)
+	fmt.Println("This is height: ")
+	fmt.Println(createinfo.ParentHeight)
 	block, notEmpty := SBC.GetBlock(createinfo.ParentHeight, createinfo.ParentHash)
+	fmt.Println(block)
 	if notEmpty && block.VerifySecret(createinfo.Id, createinfo.Secret) {
 		CreateNewGameBlock(createinfo.ParentHash, createinfo.ParentHeight, createinfo.Id, createinfo.Content, createinfo.React, createinfo.Secret)
 		w.WriteHeader(http.StatusOK)
@@ -652,7 +638,7 @@ func GetChain(block p2.Block) string {
 // such as the current time or the port number. Here's the workflow of generating blocks:
 func CreateNewGameBlock(parentHash string, parentHeight int32, creatorId string, content string, react string, secret string) {
 	fmt.Println("CreatGame")
-	for ifStarted {
+	if ifStarted {
 		mpt := data.GenMPT(content, react)
 		parentBlock, notEmpty := SBC.GetBlock(parentHeight, parentHash)
 		if !notEmpty {
@@ -676,19 +662,31 @@ func CreateNewGameBlock(parentHash string, parentHeight int32, creatorId string,
 		heartBeatData.Secret = secret
 		fmt.Println("The HeartBeat Data: ", heartBeatData.BlockJson)
 		ForwardHeartBeat(heartBeatData)
-
-		fmt.Println("ARE YOU TOO HARDWORKING???????????????")
 	}
 }
 
-// func verifyNonce(parentHash string, nonce string, mptRootHash string) (string, bool) {
-// 	try := parentHash + nonce + mptRootHash
-// 	sum := sha3.Sum256([]byte(try))
-// 	str := hex.EncodeToString(sum[:])
-// 	for i := 0; i < ZEROS; i++ {
-// 		if str[i] != '0' {
-// 			return str, false
-// 		}
-// 	}
-// 	return str, true
-// }
+func Overview(w http.ResponseWriter, r *http.Request) {
+	if !ifStarted {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Please start first"))
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Cannot read body"))
+		return
+	}
+	fmt.Println("here is OK")
+	var playerinfo data.PlayData
+	err = json.Unmarshal([]byte(body), &playerinfo)
+
+	fmt.Println(playerinfo)
+
+	res := SBC.GetOverview(playerinfo.Id)
+	fmt.Println("This is res: " + res)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(res))
+}

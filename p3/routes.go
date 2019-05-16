@@ -72,4 +72,10 @@ var routes = Routes{
 		"/rank",
 		Rank,
 	},
+	Route{
+		"Overview",
+		"Post",
+		"/overview",
+		Overview,
+	},
 }
